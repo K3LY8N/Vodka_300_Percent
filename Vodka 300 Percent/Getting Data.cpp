@@ -1,8 +1,10 @@
 #define _WIN32_DCOM
+
 #include <iostream>
-using namespace std;
 #include <comdef.h>
 #include <Wbemidl.h>
+
+using namespace std;
 
 #pragma comment(lib, "wbemuuid.lib")
 
@@ -14,7 +16,7 @@ int main(int argc, char** argv)
     hres = CoInitializeEx(0, COINIT_MULTITHREADED);
     if (FAILED(hres))
     {
-        cout << "Failed to initialize COM library. Error code = 0x"
+        cout << "ERROR"
             << hex << hres << endl;
         return 1;
     }
@@ -33,7 +35,7 @@ int main(int argc, char** argv)
 
     if (FAILED(hres))
     {
-        cout << "Failed to initialize security. Error code = 0x"
+        cout << "ERROR"
             << hex << hres << endl;
         CoUninitialize();
         return 1;
@@ -49,9 +51,7 @@ int main(int argc, char** argv)
 
     if (FAILED(hres))
     {
-        cout << "Failed to create IWbemLocator object."
-            << " Err code = 0x"
-            << hex << hres << endl;
+        cout << "ERROR" << hex << hres << endl;
         CoUninitialize();
         return 1;
     }
@@ -71,7 +71,7 @@ int main(int argc, char** argv)
 
     if (FAILED(hres))
     {
-        cout << "Could not connect. Error code = 0x"
+        cout << "ERROR"
             << hex << hres << endl;
         pLoc->Release();
         CoUninitialize();
@@ -93,7 +93,7 @@ int main(int argc, char** argv)
 
     if (FAILED(hres))
     {
-        cout << "Could not set proxy blanket. Error code = 0x"
+        cout << "ERROR"
             << hex << hres << endl;
         pSvc->Release();
         pLoc->Release();
@@ -101,8 +101,97 @@ int main(int argc, char** argv)
         return 1;
     }
 
-    /*Ïîëó÷åííèå äàííûõ î ñèñòåìå*/
-    
+    /*ÐŸÐ¾Ð»ÑƒÑ‡ÐµÐ½Ð¸Ðµ Ð´Ð°Ð½Ð½Ñ‹Ñ… Ð¾ Ñ‡Ð°ÑÐ¾Ð²Ð¾Ð¼ Ð¿Ð¾ÑÑÐµ*/
+
+    IEnumWbemClassObject* Getting_Time_Zone_Data = NULL;
+    hres = pSvc->ExecQuery(
+        bstr_t("WQL"),
+        bstr_t("SELECT * FROM Win32_TimeZone"),
+        WBEM_FLAG_FORWARD_ONLY | WBEM_FLAG_RETURN_IMMEDIATELY,
+        NULL,
+        &Getting_Time_Zone_Data);
+
+    if (FAILED(hres))
+    {
+        cout << "ERROR" << hex << hres << endl;
+        pSvc->Release();
+        pLoc->Release();
+        CoUninitialize();
+        return 1;
+    }
+
+    /*Ð’Ñ‹Ð²Ð¾Ð´ Ð´Ð°Ð½Ð½Ñ‹Ñ… Ð¾ Ñ‡Ð°ÑÐ¾Ð²Ð¾Ð¼ Ð¿Ð¾ÑÑÐµ*/
+
+    IWbemClassObject* Time_Zone_Object = NULL;
+    ULONG Time_Zone_Return = 0;
+
+    while (Getting_Time_Zone_Data)
+    {
+        HRESULT hr = Getting_Time_Zone_Data->Next(WBEM_INFINITE, 1,
+            &Time_Zone_Object, &Time_Zone_Return);
+
+        if (0 == Time_Zone_Return)
+        {
+            break;
+        }
+
+        VARIANT vtProp;
+
+        VariantInit(&vtProp);
+        hr = Time_Zone_Object->Get(L"Description", 0, &vtProp, 0, 0);
+        wcout << "Time_Zone: " << vtProp.bstrVal << endl;
+
+        Time_Zone_Object->Release();
+    }
+
+    /*ÐŸÐ¾Ð»ÑƒÑ‡ÐµÐ½Ð¸Ðµ Ð´Ð°Ð½Ð½Ñ‹Ñ… Ð¾ BIOS*/
+
+    IEnumWbemClassObject* Getting_BIOS_Data = NULL;
+    hres = pSvc->ExecQuery(
+        bstr_t("WQL"),
+        bstr_t("SELECT * FROM Win32_BIOS"),
+        WBEM_FLAG_FORWARD_ONLY | WBEM_FLAG_RETURN_IMMEDIATELY,
+        NULL,
+        &Getting_BIOS_Data);
+
+    if (FAILED(hres))
+    {
+        cout << "ERROR" << hex << hres << endl;
+        pSvc->Release();
+        pLoc->Release();
+        CoUninitialize();
+        return 1;
+    }
+
+    /*Ð’Ñ‹Ð²Ð¾Ð´ Ð´Ð°Ð½Ð½Ñ‹Ñ… Ð¾ BIOS*/
+
+    IWbemClassObject* BIOS_Object = NULL;
+    ULONG BIOS_Return = 0;
+
+    while (Getting_BIOS_Data)
+    {
+        HRESULT hr = Getting_BIOS_Data->Next(WBEM_INFINITE, 1,
+            &BIOS_Object, &BIOS_Return);
+
+        if (0 == BIOS_Return)
+        {
+            break;
+        }
+
+        VARIANT vtProp;
+
+        VariantInit(&vtProp);
+        hr = BIOS_Object->Get(L"Name", 0, &vtProp, 0, 0);
+        wcout << "BIOS Version: " << vtProp.bstrVal << endl;
+        hr = BIOS_Object->Get(L"Manufacturer", 0, &vtProp, 0, 0);
+        wcout << "Manufacturer: " << vtProp.bstrVal << endl;
+        VariantClear(&vtProp);
+
+        BIOS_Object->Release();
+    }
+
+    /*ÐŸÐ¾Ð»ÑƒÑ‡ÐµÐ½Ð¸Ðµ Ð´Ð°Ð½Ð½Ñ‹Ñ… Ð¾ ÑÐ¸ÑÑ‚ÐµÐ¼Ðµ*/
+
     IEnumWbemClassObject* Getting_System_Data = NULL;
     hres = pSvc->ExecQuery(
         bstr_t("WQL"),
@@ -119,9 +208,9 @@ int main(int argc, char** argv)
         CoUninitialize();
         return 1;
     }
-    
-    /*Âûâîä ïîëó÷åííûõ äàííûõ*/
-    
+
+    /*Ð’Ñ‹Ð²Ð¾Ð´ Ð´Ð°Ð½Ð½Ñ‹Ñ… Ð¾ ÑÐ¸ÑÑ‚ÐµÐ¼Ðµ*/
+
     IWbemClassObject* Operating_System_Object = NULL;
     ULONG Operating_System_Return = 0;
 
@@ -147,15 +236,10 @@ int main(int argc, char** argv)
         Operating_System_Object->Release();
     }
 
-    pSvc->Release();
-    pLoc->Release();
-    Getting_System_Data->Release();
-    CoUninitialize();
-    
-    /*Ïîëó÷åííèå äàííûõ î ïàìÿòè òåõíèêè*/
-    
+    /*ÐŸÐ¾Ð»ÑƒÑ‡ÐµÐ½Ð¸Ðµ Ð´Ð°Ð½Ð½Ñ‹Ñ… Ð¾ Ð¿Ð°Ð¼ÑÑ‚Ð¸*/
+
     IEnumWbemClassObject* Getting_Memory_Data = NULL;
-    hres = pSvc->ExecQuery( /*Çäåñü ïðîáëåìà*/
+    hres = pSvc->ExecQuery(
         bstr_t("WQL"),
         bstr_t("SELECT * FROM Win32_LogicalDisk"),
         WBEM_FLAG_FORWARD_ONLY | WBEM_FLAG_RETURN_IMMEDIATELY,
@@ -170,9 +254,9 @@ int main(int argc, char** argv)
         CoUninitialize();
         return 1;
     }
-    
-    /*Âûâîä ïîëó÷åííûõ äàííûõ*/
-    
+
+    /*Ð’Ñ‹Ð²Ð¾Ð´ Ð´Ð°Ð½Ð½Ñ‹Ñ… Ð¾ Ð¿Ð°Ð¼ÑÑ‚Ð¸*/
+
     IWbemClassObject* Logical_Disk_Object = NULL;
     ULONG Logical_Disk_Return = 0;
 
@@ -200,13 +284,8 @@ int main(int argc, char** argv)
         Logical_Disk_Object->Release();
     }
 
-    pSvc->Release();
-    pLoc->Release();
-    Getting_Memory_Data->Release();
-    CoUninitialize();
-    
-    /*Ïîëó÷åííèå äàííûõ î ïðîöåññîðå*/
-    
+    /*ÐŸÐ¾Ð»ÑƒÑ‡ÐµÐ½Ð¸Ðµ Ð´Ð°Ð½Ð½Ñ‹Ñ… Ð¾ Ð¿Ñ€Ð¾Ñ†ÐµÑÑÐ¾Ñ€Ðµ*/
+
     IEnumWbemClassObject* Getting_CPU_Data = NULL;
     hres = pSvc->ExecQuery(
         bstr_t("WQL"),
@@ -223,9 +302,9 @@ int main(int argc, char** argv)
         CoUninitialize();
         return 1;
     }
-    
-    /*Âûâîä ïîëó÷åííûõ äàííûõ*/
-    
+
+    /*Ð’Ñ‹Ð²Ð¾Ð´ Ð´Ð°Ð½Ð½Ñ‹Ñ… Ð¾ Ð¿Ñ€Ð¾Ñ†ÐµÑÑÐ¾Ñ€Ðµ*/
+
     IWbemClassObject* Processor_Object = NULL;
     ULONG Processor_Return = 0;
 
@@ -244,8 +323,6 @@ int main(int argc, char** argv)
         VariantInit(&vtProp);
         hr = Processor_Object->Get(L"Name", 0, &vtProp, 0, 0);
         wcout << "Processor Name: " << vtProp.bstrVal << endl;
-        /*hr = Processor_Object->Get(L"NumberOfCores", 0, &vtProp, 0, 0);
-        wcout << "Number Of Cores: " << vtProp.bstrVal << endl;*/ /*Ïðîãðàììà âûäà¸ò îøèáêó*/
         hr = Processor_Object->Get(L"Manufacturer", 0, &vtProp, 0, 0);
         wcout << "Manufacturer: " << vtProp.bstrVal << endl;
         VariantClear(&vtProp);
@@ -253,14 +330,8 @@ int main(int argc, char** argv)
         Processor_Object->Release();
     }
 
-    pSvc->Release();
-    pLoc->Release();
-    Getting_CPU_Data->Release();
-    CoUninitialize();
-    
+    /*ÐŸÐ¾Ð»ÑƒÑ‡ÐµÐ½Ð¸Ðµ Ð´Ð°Ð½Ð½Ñ‹Ñ… Ð¾ Ð²Ð¸Ð´ÐµÐ¾ÐºÐ¾Ð½Ñ‚Ñ€Ð¾Ð»Ð»ÐµÑ€Ðµ*/
 
-    /*Ïîëó÷åííèå äàííûõ î âèäåîêàðòå*/
-    
     IEnumWbemClassObject* Getting_VideoController_Data = NULL;
     hres = pSvc->ExecQuery(
         bstr_t("WQL"),
@@ -277,9 +348,9 @@ int main(int argc, char** argv)
         CoUninitialize();
         return 1;
     }
-    
-    /*Âûâîä ïîëó÷åííûõ äàííûõ*/
-    
+
+    /*Ð’Ñ‹Ð²Ð¾Ð´ Ð´Ð°Ð½Ð½Ñ‹Ñ… Ð¾ Ð²Ð¸Ð´ÐµÐ¾ÐºÐ¾Ð½Ñ‚Ñ€Ð¾Ð»Ð»ÐµÑ€Ðµ*/
+
     IWbemClassObject* VideoController_Object = NULL;
     ULONG VideoController_Return = 0;
 
@@ -305,12 +376,7 @@ int main(int argc, char** argv)
         VideoController_Object->Release();
     }
 
-    pSvc->Release();
-    pLoc->Release();
-    Getting_VideoController_Data->Release();
-    CoUninitialize();
-
-    /*Ïîëó÷åííèå äàííûõ î çâóêîâûõ óñòðîéñòâàõ*/
+    /*ÐŸÐ¾Ð»ÑƒÑ‡ÐµÐ½Ð¸Ðµ Ð´Ð°Ð½Ð½Ñ‹Ñ… Ð¾ Ð·Ð²ÑƒÐºÐ¾Ð²Ñ‹Ñ… ÑƒÑÑ‚Ñ€Ð¾Ð¹ÑÑ‚Ð²Ð°Ñ…*/
 
     IEnumWbemClassObject* Getting_Sound_Device_Data = NULL;
     hres = pSvc->ExecQuery(
@@ -328,9 +394,9 @@ int main(int argc, char** argv)
         CoUninitialize();
         return 1;
     }
-    
-    /*Âûâîä ïîëó÷åííûõ äàííûõ*/
-    
+
+    /*Ð’Ñ‹Ð²Ð¾Ð´ Ð´Ð°Ð½Ð½Ñ‹Ñ… Ð¾ Ð·Ð²ÑƒÐºÐ¾Ð²Ñ‹Ñ… ÑƒÑÑ‚Ñ€Ð¾Ð¹ÑÑ‚Ð²Ð°Ñ…*/
+
     IWbemClassObject* Sound_Device_Object = NULL;
     ULONG Sound_Device_Return = 0;
 
@@ -353,9 +419,17 @@ int main(int argc, char** argv)
 
         Sound_Device_Object->Release();
     }
+    
+    /*ÐžÑ‡Ð¸ÑÑ‚ÐºÐ° Ð²ÑÐµÑ… Ð´Ð°Ð½Ð½Ñ‹Ñ…*/
 
     pSvc->Release();
     pLoc->Release();
+    Getting_Time_Zone_Data->Release();
+    Getting_BIOS_Data->Release();
+    Getting_System_Data->Release();
+    Getting_Memory_Data->Release();
+    Getting_CPU_Data->Release();
+    Getting_VideoController_Data->Release();
     Getting_Sound_Device_Data->Release();
     CoUninitialize();
     return 0;
